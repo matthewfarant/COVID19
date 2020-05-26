@@ -1,0 +1,63 @@
+---
+title: "A Bayesian View on COVID-19 Estimation"
+author: "Matthew Farant"
+date: "5/11/2020"
+output:
+  html_document:
+    df_print: paged
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## COVID-19 Test on Bogor's Commuterline
+Commuter line, locally known as Kereta Rel Listrik (KRL), is one of the busiest transportation modes in Jabodetabek. It carries almost 141,330 passengers every day, even amid physical distancing “PSBB”. On Monday (May 11, 2020), the district government of Bogor conducts a rapid and swab test to a sample of **200 KRL passengers**. According to the test, they found **1 person** to be tested positive of COVID-19. Roughly, we can estimate that for every 200 passengers, there will be 1 person tested positive (0.5% infection rate). However, estimating the infection rate by only dividing those two numbers might be impractical.
+
+## Bayes Theorem for Estimating the Infection Rate
+The Bayes' theorem is stated mathematically as the following equation:
+$$P(H|E)=\frac{P(E|H)P(H)}{P(E)}$$
+With “H” as the hypothesis and “E” as the evidence, we can utilize the equation above to estimate the rate of infection in Bogor’s KRL, given the test result on Monday. Our hypothesis is:
+The rate of infection will be the proportion of positively tested people and the total number of people available, denoted by _r_
+The evidence shows that from 200 passengers tested, only 1 person tested positive for COVID-19.
+The probability of this evidence occurred given the hypothesis is true will be expressed like a Binomial distribution PDF as below
+$$P(E|H)=\binom{200}{1}r(1-r)^{199}$$
+Using the binomial model and Beta distribution as a prior, we can find the posterior by using the Bayes’ theorem. After multiplying the above equation with the Beta distribution PDF, we know that the posterior will also be a Beta distribution, but with updated hyperparameter (Beta distribution with alpha = 1+1 and beta = 1+200–1).
+Because the posterior is inside the same distribution family as the prior, the **conjugate prior** of the Binomial model is the Beta distribution. Hence, the posterior distribution will be Beta(2,200) which is represented as the following expression:
+$$\frac{\Gamma(202)}{\Gamma(2)\Gamma(200)}r(1-r)^{199}$$
+We can generate the plot of the Beta distribution by iterating each possible value of r using for loop or sapply() function.
+```{r echo=TRUE, results='hide'}
+#define function for P(E|H)
+beta<-function(r){
+  return(200*r*(1-r)^(199))
+}
+#possible values of r
+r<-seq(from=0,to=5/100,by=0.1/100)
+#for loop
+p<-c()
+for(i in 1:length(r)){
+  p[i]<-print(beta(r[i]))
+}
+```
+Alternatively, we can also use dbinom() function or dbeta() function directly to generate the beta distribution plot, both functions will return the same plot.
+```{r}
+library(ggplot2)
+r<-seq(from=0,to=5/100,by=0.1/100)
+#density plot
+dat<-data.frame(r,dbinom(1,200,r))
+plot<-ggplot(dat,aes(r,dbinom(1,200,r)))+
+  geom_point()+
+  geom_line(col='darkblue')
+plot
+```
+With Beta distribution as the posterior PDF and 95% Confidence Interval, we can say that the interval of the rate of infection will be 0.00121 until 0.02741 (0.121% until 2.741%) by finding the upper and lower bounds that generate an area of 0.95 under the Beta distribution curve.
+```{r}
+#lower bound (95% CI, two-tailed)
+qbeta(0.025,2,200)
+#upper bound (95% CI, two-tailed)
+qbeta(0.975,2,200)
+```
+Therefore, suppose there are 1000 people inside the KRL trains, there will be approximately **1 until 27 people** tested positive with COVID-19.
+
+## Conclusion
+Besides the SIR model, which is a deterministic approach of estimating COVID-19 behavior, we can also use Bayes’ Theorem as a different approach to estimate the number of infected people. The main idea of using this method is taking into account the randomness and uncertainty of a virus’s behavior. This study case is just a simple example of COVID-19 spread on KRL passengers. It is true that this method can be a way for policymakers to determine preventive measures in KRL trains, stations, or even on a bigger scale.
